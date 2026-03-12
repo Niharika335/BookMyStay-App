@@ -128,7 +128,7 @@ class SearchService {
 }
 
 // Application entry point
-public class UseCase4RoomSearch {
+public class book {
 
     public static void main(String[] args) {
 
