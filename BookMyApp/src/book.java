@@ -1,98 +1,119 @@
 import java.util.*;
 
-// Reservation class (represents guest request)
+// Reservation (from Use Case 5)
 class Reservation {
-    private String customerName;
-    private String roomType;
+    String customerName;
+    String roomType;
 
     public Reservation(String customerName, String roomType) {
         this.customerName = customerName;
         this.roomType = roomType;
     }
+}
 
-    public String getCustomerName() {
-        return customerName;
+// Inventory Service
+class InventoryService {
+    private Map<String, Integer> inventory = new HashMap<>();
+
+    public InventoryService() {
+        inventory.put("Single", 2);
+        inventory.put("Double", 2);
+        inventory.put("Suite", 1);
     }
 
-    public String getRoomType() {
-        return roomType;
+    public boolean isAvailable(String roomType) {
+        return inventory.getOrDefault(roomType, 0) > 0;
     }
 
-    @Override
-    public String toString() {
-        return "Reservation{Customer='" + customerName + "', RoomType='" + roomType + "'}";
+    public void decrement(String roomType) {
+        inventory.put(roomType, inventory.get(roomType) - 1);
+    }
+
+    public void displayInventory() {
+        System.out.println("Inventory: " + inventory);
     }
 }
 
-// Booking Request Queue Service
-class BookingRequestQueue {
-    private Queue<Reservation> requestQueue;
+// Booking Service
+class BookingService {
+    private Queue<Reservation> queue = new LinkedList<>();
+    private Set<String> allocatedRoomIds = new HashSet<>();
+    private Map<String, Set<String>> allocationMap = new HashMap<>();
+    private InventoryService inventoryService;
 
-    public BookingRequestQueue() {
-        requestQueue = new LinkedList<>();
+    public BookingService(InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
     }
 
-    // Add request to queue (FIFO)
-    public void addRequest(Reservation reservation) {
-        requestQueue.offer(reservation);
-        System.out.println("Request added: " + reservation);
+    // Add request (FIFO)
+    public void addRequest(Reservation r) {
+        queue.offer(r);
     }
 
-    // View next request (without removing)
-    public void peekRequest() {
-        if (requestQueue.isEmpty()) {
-            System.out.println("No pending requests.");
-        } else {
-            System.out.println("Next request in queue: " + requestQueue.peek());
-        }
+    // Generate unique room ID
+    private String generateRoomId(String type) {
+        String id;
+        do {
+            id = type.substring(0, 2).toUpperCase() + "-" +
+                    UUID.randomUUID().toString().substring(0, 4);
+        } while (allocatedRoomIds.contains(id));
+        return id;
     }
 
-    // Process request (remove from queue)
-    public void processRequest() {
-        if (requestQueue.isEmpty()) {
-            System.out.println("No requests to process.");
-        } else {
-            Reservation processed = requestQueue.poll();
-            System.out.println("Processing request: " + processed);
-        }
-    }
+    // Process queue
+    public void processBookings() {
+        while (!queue.isEmpty()) {
+            Reservation r = queue.poll();
 
-    // Display all queued requests
-    public void displayQueue() {
-        if (requestQueue.isEmpty()) {
-            System.out.println("Queue is empty.");
-        } else {
-            System.out.println("\nCurrent Booking Queue (FIFO Order):");
-            for (Reservation r : requestQueue) {
-                System.out.println(r);
+            System.out.println("\nProcessing: " + r.customerName);
+
+            if (!inventoryService.isAvailable(r.roomType)) {
+                System.out.println("No rooms available for " + r.roomType);
+                continue;
             }
+
+            // Atomic-like allocation
+            String roomId = generateRoomId(r.roomType);
+
+            allocatedRoomIds.add(roomId);
+
+            allocationMap
+                    .computeIfAbsent(r.roomType, k -> new HashSet<>())
+                    .add(roomId);
+
+            inventoryService.decrement(r.roomType);
+
+            System.out.println("Reservation Confirmed!");
+            System.out.println("Customer: " + r.customerName);
+            System.out.println("Room Type: " + r.roomType);
+            System.out.println("Room ID: " + roomId);
         }
+    }
+
+    public void displayAllocations() {
+        System.out.println("\nAllocations: " + allocationMap);
     }
 }
 
-// Main Class
+// Main class
 public class book {
     public static void main(String[] args) {
 
-        BookingRequestQueue bookingQueue = new BookingRequestQueue();
+        InventoryService inventory = new InventoryService();
+        BookingService bookingService = new BookingService(inventory);
 
-        // Adding booking requests (FIFO order)
-        bookingQueue.addRequest(new Reservation("Niharika", "Single"));
-        bookingQueue.addRequest(new Reservation("Rahul", "Double"));
-        bookingQueue.addRequest(new Reservation("Ananya", "Suite"));
-        bookingQueue.addRequest(new Reservation("Karan", "Single"));
+        // Simulating queue from Use Case 5
+        bookingService.addRequest(new Reservation("Niharika", "Single"));
+        bookingService.addRequest(new Reservation("Rahul", "Double"));
+        bookingService.addRequest(new Reservation("Ananya", "Single"));
+        bookingService.addRequest(new Reservation("Karan", "Suite"));
+        bookingService.addRequest(new Reservation("Meera", "Single"));
 
-        // Display queue
-        bookingQueue.displayQueue();
+        // Process bookings
+        bookingService.processBookings();
 
-        // Peek next request
-        bookingQueue.peekRequest();
-
-        // Process requests one by one
-        bookingQueue.processRequest();
-        bookingQueue.processRequest();
-
-        // Display remaining queue
-        bookingQueue.displayQueue();
+        // Final state
+        inventory.displayInventory();
+        bookingService.displayAllocations();
     }
 }
